@@ -64,10 +64,9 @@ export function CanvasBackground() {
       drawW = ch * imgRatio;
     }
 
-    if (window.innerWidth <= 768) {
-      drawW *= 1.3;
-      drawH *= 1.3;
-    }
+    // Cover the entire canvas (like desktop) - no mobile zoom
+    drawW = drawW * 1.05;
+    drawH = drawH * 1.05;
 
     const drawX = (cw - drawW) / 2;
     const drawY = (ch - drawH) / 2;
@@ -80,19 +79,35 @@ export function CanvasBackground() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + "px";
-    canvas.style.height = window.innerHeight + "px";
+    // Use visualViewport for accurate mobile viewport height (handles address bar show/hide)
+    const vv = window.visualViewport;
+    const w = vv ? vv.width : window.innerWidth;
+    const h = vv ? vv.height : window.innerHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
     const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(1, 1);
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawFrame(lastFrameRef.current >= 0 ? lastFrameRef.current : 0);
   }, [drawFrame]);
 
   useEffect(() => {
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
+    // Also listen to visualViewport resize for mobile address bar show/hide
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", resizeCanvas);
+      vv.addEventListener("scroll", resizeCanvas);
+    }
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      if (vv) {
+        vv.removeEventListener("resize", resizeCanvas);
+        vv.removeEventListener("scroll", resizeCanvas);
+      }
+    };
   }, [resizeCanvas]);
 
   useEffect(() => {
