@@ -6,6 +6,9 @@ const FRAME_COUNT_1 = 169;
 const FRAME_COUNT_2 = 169;
 const TOTAL_FRAMES = FRAME_COUNT_1 + FRAME_COUNT_2;
 
+// Image aspect ratio (landscape)
+const IMG_RATIO = 1916 / 1080;
+
 const getFramePath = (index: number) => {
   if (index < FRAME_COUNT_1) {
     return `/frames/frame_${String(index + 1).padStart(4, "0")}.jpg`;
@@ -16,6 +19,7 @@ const getFramePath = (index: number) => {
 
 export function CanvasBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
   const lastFrameRef = useRef(-1);
   const tickingRef = useRef(false);
@@ -43,8 +47,7 @@ export function CanvasBackground() {
     return () => { cancelled = true; };
   }, []);
 
-  // Draw a frame with "cover" behavior (like object-fit: cover)
-  // This ensures the canvas is always fully filled with the image on ALL devices
+  // Draw frame with "cover" behavior — fills canvas completely on all devices
   const drawFrame = useCallback((index: number) => {
     const canvas = canvasRef.current;
     const img = framesRef.current[index];
@@ -58,8 +61,7 @@ export function CanvasBackground() {
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
 
-    // "Cover" algorithm: scale image to fill canvas, maintain aspect ratio, crop excess
-    // This is identical to CSS object-fit: cover
+    // "Cover" — scale image to fill canvas completely, crop overflow
     const scale = Math.max(cw / imgW, ch / imgH);
     const drawW = imgW * scale;
     const drawH = imgH * scale;
@@ -70,7 +72,7 @@ export function CanvasBackground() {
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
   }, []);
 
-  // Resize canvas to match viewport (handles mobile address bar via visualViewport)
+  // Resize canvas and apply CSS for proper mobile display
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -79,19 +81,43 @@ export function CanvasBackground() {
     const vv = window.visualViewport;
     const w = vv ? vv.width : window.innerWidth;
     const h = vv ? vv.height : window.innerHeight;
+    const isMobile = w <= 768;
 
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
+    if (isMobile) {
+      // Mobile: render canvas at image aspect ratio, fit to viewport WIDTH
+      // This shows the FULL image width (less zoom), centered vertically
+      const renderW = w * dpr;
+      const renderH = (w / IMG_RATIO) * dpr;
 
-    // Reset transform and apply DPR scaling
+      canvas.width = Math.round(renderW);
+      canvas.height = Math.round(renderH);
+      canvas.style.width = w + "px";
+      canvas.style.height = (w / IMG_RATIO) + "px";
+      canvas.style.position = "absolute";
+      canvas.style.top = "50%";
+      canvas.style.left = "0";
+      canvas.style.transform = "translateY(-50%)";
+      canvas.style.transformOrigin = "center center";
+    } else {
+      // Desktop: fill the entire viewport (unchanged behavior)
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      canvas.style.position = "";
+      canvas.style.top = "";
+      canvas.style.left = "";
+      canvas.style.transform = "";
+      canvas.style.transformOrigin = "";
+    }
+
+    // Apply DPR scaling
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    // Redraw current frame after resize
+    // Redraw current frame
     const frameToDraw = lastFrameRef.current >= 0 ? lastFrameRef.current : 0;
     drawFrame(frameToDraw);
   }, [drawFrame]);
@@ -99,15 +125,12 @@ export function CanvasBackground() {
   // Set up resize listeners
   useEffect(() => {
     resizeCanvas();
-
     window.addEventListener("resize", resizeCanvas);
-
     const vv = window.visualViewport;
     if (vv) {
       vv.addEventListener("resize", resizeCanvas);
       vv.addEventListener("scroll", resizeCanvas);
     }
-
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       if (vv) {
@@ -151,10 +174,10 @@ export function CanvasBackground() {
   }, [loaded, drawFrame]);
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none bg-[#06080d]">
+    <div ref={containerRef} className="fixed inset-0 z-0 pointer-events-none bg-[#06080d] overflow-hidden">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 h-full w-full opacity-75 mix-blend-screen"
+        className="opacity-75 mix-blend-screen"
         style={{
           willChange: "contents",
           transform: "translateZ(0)",
@@ -162,7 +185,7 @@ export function CanvasBackground() {
         }}
       />
 
-      {/* Radial gradient overlay to blend edges */}
+      {/* Radial gradient overlay */}
       <div
         className="absolute inset-0"
         style={{
