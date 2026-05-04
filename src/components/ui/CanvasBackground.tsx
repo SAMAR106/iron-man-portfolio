@@ -22,6 +22,7 @@ export function CanvasBackground() {
   const [loaded, setLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
 
+  // Preload all frame images
   useEffect(() => {
     let cancelled = false;
     let loadedCount = 0;
@@ -42,40 +43,26 @@ export function CanvasBackground() {
     return () => { cancelled = true; };
   }, []);
 
+  // Draw a frame with "cover" behavior (like object-fit: cover)
+  // This ensures the canvas is always fully filled with the image on ALL devices
   const drawFrame = useCallback((index: number) => {
     const canvas = canvasRef.current;
     const img = framesRef.current[index];
     if (!canvas || !img || !img.complete || !img.naturalWidth) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const cw = canvas.width;
     const ch = canvas.height;
-    const imgRatio = img.naturalWidth / img.naturalHeight;
-    const isMobile = cw / (window.devicePixelRatio || 1) <= 768;
+    const imgW = img.naturalWidth;
+    const imgH = img.naturalHeight;
 
-    let drawW: number;
-    let drawH: number;
-
-    if (isMobile) {
-      // Mobile: fit by width so the full image width is visible (less zoomed in)
-      drawW = cw;
-      drawH = cw / imgRatio;
-    } else {
-      // Desktop: cover the canvas (maintain original behavior)
-      const canvasRatio = cw / ch;
-      if (canvasRatio > imgRatio) {
-        drawW = cw;
-        drawH = cw / imgRatio;
-      } else {
-        drawH = ch;
-        drawW = ch * imgRatio;
-      }
-      // Slight scale-up to avoid gaps on desktop
-      drawW = drawW * 1.05;
-      drawH = drawH * 1.05;
-    }
-
+    // "Cover" algorithm: scale image to fill canvas, maintain aspect ratio, crop excess
+    // This is identical to CSS object-fit: cover
+    const scale = Math.max(cw / imgW, ch / imgH);
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
     const drawX = (cw - drawW) / 2;
     const drawY = (ch - drawH) / 2;
 
@@ -83,32 +70,44 @@ export function CanvasBackground() {
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
   }, []);
 
+  // Resize canvas to match viewport (handles mobile address bar via visualViewport)
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const dpr = window.devicePixelRatio || 1;
-    // Use visualViewport for accurate mobile viewport height (handles address bar show/hide)
     const vv = window.visualViewport;
     const w = vv ? vv.width : window.innerWidth;
     const h = vv ? vv.height : window.innerHeight;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
+
+    // Reset transform and apply DPR scaling
     const ctx = canvas.getContext("2d");
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawFrame(lastFrameRef.current >= 0 ? lastFrameRef.current : 0);
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Redraw current frame after resize
+    const frameToDraw = lastFrameRef.current >= 0 ? lastFrameRef.current : 0;
+    drawFrame(frameToDraw);
   }, [drawFrame]);
 
+  // Set up resize listeners
   useEffect(() => {
     resizeCanvas();
+
     window.addEventListener("resize", resizeCanvas);
-    // Also listen to visualViewport resize for mobile address bar show/hide
+
     const vv = window.visualViewport;
     if (vv) {
       vv.addEventListener("resize", resizeCanvas);
       vv.addEventListener("scroll", resizeCanvas);
     }
+
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       if (vv) {
@@ -118,12 +117,14 @@ export function CanvasBackground() {
     };
   }, [resizeCanvas]);
 
+  // Draw first frame when loaded
   useEffect(() => {
     if (!loaded) return;
     drawFrame(0);
     lastFrameRef.current = 0;
   }, [loaded, drawFrame]);
 
+  // Scroll-driven frame animation
   useEffect(() => {
     const handleScroll = () => {
       if (tickingRef.current) return;
@@ -150,7 +151,7 @@ export function CanvasBackground() {
   }, [loaded, drawFrame]);
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none bg-background overflow-hidden">
+    <div className="fixed inset-0 z-0 pointer-events-none bg-[#06080d]">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 h-full w-full opacity-75 mix-blend-screen"
@@ -160,32 +161,35 @@ export function CanvasBackground() {
           filter: "brightness(2.0) contrast(1.3) drop-shadow(0 0 15px rgba(34,211,238,0.3))"
         }}
       />
+
+      {/* Radial gradient overlay to blend edges */}
       <div
         className="absolute inset-0"
         style={{
           background: "radial-gradient(circle at center, transparent 0%, rgba(6, 8, 13, 0.7) 100%)",
         }}
       />
-      
+
+      {/* Loading screen */}
       {!loaded && (
-        <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-[#030712] overflow-hidden">
+        <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-[#030712]">
           {/* Jarvis HUD elements */}
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.4)_0%,transparent_60%)]" />
-          
+
           <div className="relative flex items-center justify-center w-[300px] h-[300px] md:w-[450px] md:h-[450px]">
             {/* Outer dashed ring */}
             <svg className="absolute w-full h-full animate-[spin_10s_linear_infinite]" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(34,211,238,0.3)" strokeWidth="0.5" strokeDasharray="4 2 1 2" />
             </svg>
-            
+
             {/* Middle segmented ring */}
             <svg className="absolute w-[85%] h-[85%] animate-[spin_6s_linear_infinite_reverse]" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(34,211,238,0.5)" strokeWidth="1.5" strokeDasharray="20 5 10 5" />
             </svg>
-            
+
             {/* Inner solid ring with glow */}
             <div className="absolute w-[70%] h-[70%] rounded-full border border-accent/80 shadow-[0_0_20px_rgba(34,211,238,0.6)_inset,0_0_20px_rgba(34,211,238,0.6)]" />
-            
+
             {/* Center Core */}
             <div className="absolute w-[50%] h-[50%] rounded-full bg-accent/20 backdrop-blur-md animate-pulse-glow flex flex-col items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.4)] border border-white/20">
               <span className="font-mono text-4xl md:text-5xl font-bold text-white drop-shadow-[0_0_10px_rgba(34,211,238,1)]">
@@ -203,20 +207,20 @@ export function CanvasBackground() {
               <span>System Initialization</span>
               <span>{Math.round(loadProgress * 100)}%</span>
             </div>
-            
+
             {/* Loading Bar */}
             <div className="h-[2px] w-full bg-white/10 relative overflow-hidden rounded-full">
-              <div 
+              <div
                 className="absolute top-0 left-0 h-full bg-white shadow-[0_0_15px_rgba(255,255,255,1)] transition-all duration-300"
                 style={{ width: `${loadProgress * 100}%` }}
               />
             </div>
-            
+
             {/* Segments */}
             <div className="w-full grid grid-cols-10 gap-1 mt-1">
-               {[...Array(10)].map((_, i) => (
-                  <div key={i} className={`h-1.5 w-full rounded-sm transition-colors duration-200 ${i < (loadProgress * 10) ? 'bg-accent shadow-[0_0_5px_rgba(34,211,238,0.8)]' : 'bg-white/5'}`} />
-               ))}
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className={`h-1.5 w-full rounded-sm transition-colors duration-200 ${i < (loadProgress * 10) ? 'bg-accent shadow-[0_0_5px_rgba(34,211,238,0.8)]' : 'bg-white/5'}`} />
+              ))}
             </div>
           </div>
         </div>
