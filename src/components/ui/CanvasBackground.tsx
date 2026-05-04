@@ -52,21 +52,29 @@ export function CanvasBackground() {
     const cw = canvas.width;
     const ch = canvas.height;
     const imgRatio = img.naturalWidth / img.naturalHeight;
-    const canvasRatio = cw / ch;
+    const isMobile = cw / (window.devicePixelRatio || 1) <= 768;
 
     let drawW: number;
     let drawH: number;
-    if (canvasRatio > imgRatio) {
+
+    if (isMobile) {
+      // Mobile: fit by width so the full image width is visible (less zoomed in)
       drawW = cw;
       drawH = cw / imgRatio;
     } else {
-      drawH = ch;
-      drawW = ch * imgRatio;
+      // Desktop: cover the canvas (maintain original behavior)
+      const canvasRatio = cw / ch;
+      if (canvasRatio > imgRatio) {
+        drawW = cw;
+        drawH = cw / imgRatio;
+      } else {
+        drawH = ch;
+        drawW = ch * imgRatio;
+      }
+      // Slight scale-up to avoid gaps on desktop
+      drawW = drawW * 1.05;
+      drawH = drawH * 1.05;
     }
-
-    // Cover the entire canvas (like desktop) - no mobile zoom
-    drawW = drawW * 1.05;
-    drawH = drawH * 1.05;
 
     const drawX = (cw - drawW) / 2;
     const drawY = (ch - drawH) / 2;
