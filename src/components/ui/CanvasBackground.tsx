@@ -6,9 +6,6 @@ const FRAME_COUNT_1 = 169;
 const FRAME_COUNT_2 = 169;
 const TOTAL_FRAMES = FRAME_COUNT_1 + FRAME_COUNT_2;
 
-// Image aspect ratio (landscape)
-const IMG_RATIO = 1916 / 1080;
-
 const getFramePath = (index: number) => {
   if (index < FRAME_COUNT_1) {
     return `/frames/frame_${String(index + 1).padStart(4, "0")}.jpg`;
@@ -72,7 +69,7 @@ export function CanvasBackground() {
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
   }, []);
 
-  // Resize canvas and apply CSS for proper mobile display
+  // Resize canvas to cover the full viewport on all devices
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -81,35 +78,18 @@ export function CanvasBackground() {
     const vv = window.visualViewport;
     const w = vv ? vv.width : window.innerWidth;
     const h = vv ? vv.height : window.innerHeight;
-    const isMobile = w <= 768;
 
-    if (isMobile) {
-      // Mobile: render canvas at image aspect ratio, fit to viewport WIDTH
-      // This shows the FULL image width (less zoom), centered vertically
-      const renderW = w * dpr;
-      const renderH = (w / IMG_RATIO) * dpr;
-
-      canvas.width = Math.round(renderW);
-      canvas.height = Math.round(renderH);
-      canvas.style.width = w + "px";
-      canvas.style.height = (w / IMG_RATIO) + "px";
-      canvas.style.position = "absolute";
-      canvas.style.top = "50%";
-      canvas.style.left = "0";
-      canvas.style.transform = "translateY(-50%)";
-      canvas.style.transformOrigin = "center center";
-    } else {
-      // Desktop: fill the entire viewport (unchanged behavior)
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = w + "px";
-      canvas.style.height = h + "px";
-      canvas.style.position = "";
-      canvas.style.top = "";
-      canvas.style.left = "";
-      canvas.style.transform = "";
-      canvas.style.transformOrigin = "";
-    }
+    // Always use "cover" behavior: fill the entire viewport
+    // The drawFrame function already handles the cover scaling
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    canvas.style.position = "";
+    canvas.style.top = "";
+    canvas.style.left = "";
+    canvas.style.transform = "";
+    canvas.style.transformOrigin = "";
 
     // Apply DPR scaling
     const ctx = canvas.getContext("2d");
