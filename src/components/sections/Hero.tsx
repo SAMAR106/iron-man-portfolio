@@ -42,6 +42,18 @@ export function Hero() {
       id="hero"
       className="relative flex min-h-[100dvh] items-center overflow-hidden bg-transparent px-6 pt-24 pb-20 md:px-12"
     >
+      {/* Mobile-visible background gradient (sits behind orbs) */}
+      <div
+        className="absolute inset-0 md:opacity-0 opacity-100 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 100% 80% at 30% 20%, rgba(34,211,238,0.10) 0%, transparent 50%),
+            radial-gradient(ellipse 80% 60% at 70% 80%, rgba(167,139,250,0.08) 0%, transparent 50%),
+            linear-gradient(180deg, rgba(6,8,13,0.2) 0%, rgba(10,14,24,0.4) 100%)
+          `,
+        }}
+      />
+
       {/* Background orbs */}
       <div className="orb-1 -top-40 -right-40 opacity-60" />
       <div className="orb-2 -bottom-20 -left-40 opacity-50" />

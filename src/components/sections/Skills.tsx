@@ -174,6 +174,19 @@ export function Skills() {
       ref={containerRef}
       className="relative bg-transparent py-32 md:py-48 min-h-[1800px]"
     >
+      {/* Mobile-visible background gradient */}
+      <div
+        className="absolute inset-0 md:opacity-0 opacity-100 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 40% at 50% 0%, rgba(34,211,238,0.08) 0%, transparent 50%),
+            radial-gradient(ellipse 60% 40% at 50% 100%, rgba(167,139,250,0.06) 0%, transparent 50%)
+          `,
+        }}
+      />
+      <div className="orb-1 -top-20 left-1/2 -translate-x-1/2 opacity-30" />
+      <div className="orb-2 bottom-20 -right-20 opacity-20" />
+
       <div className="relative z-10 mx-auto max-w-[1200px] px-6 md:px-10">
         
         <AnimatedSection className="text-center mb-40">

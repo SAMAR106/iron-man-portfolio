@@ -34,6 +34,17 @@ export function Contact() {
       id="contact"
       className="relative border-t border-white/5 bg-transparent px-6 py-24 md:px-10 md:py-32"
     >
+      {/* Mobile-visible background gradient */}
+      <div
+        className="absolute inset-0 md:opacity-0 opacity-100 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 60% at 50% 50%, rgba(34,211,238,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(167,139,250,0.05) 0%, transparent 50%)
+          `,
+        }}
+      />
+
       {/* Background */}
       <div className="orb-1 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20" />
       <div className="orb-2 bottom-0 right-0 opacity-25" />

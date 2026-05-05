@@ -6,6 +6,12 @@ const FRAME_COUNT_1 = 169;
 const FRAME_COUNT_2 = 169;
 const TOTAL_FRAMES = FRAME_COUNT_1 + FRAME_COUNT_2;
 
+/** Detect mobile once at module level */
+const isMobileBrowser = () => {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
+
 const getFramePath = (index: number) => {
   if (index < FRAME_COUNT_1) {
     return `/frames/frame_${String(index + 1).padStart(4, "0")}.jpg`;
@@ -18,29 +24,46 @@ export function CanvasBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const framesRef = useRef<HTMLImageElement[]>([]);
+  const frameIndexMapRef = useRef<number[]>([]); // maps virtual index → actual frame index
   const lastFrameRef = useRef(-1);
   const tickingRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Preload all frame images
+  // Detect mobile on mount
+  useEffect(() => {
+    setIsMobile(isMobileBrowser());
+  }, []);
+
+  // Preload frame images — on mobile, load every 3rd frame to save memory
   useEffect(() => {
     let cancelled = false;
     let loadedCount = 0;
     const imgs: HTMLImageElement[] = [];
+    const mobile = isMobileBrowser();
+    const step = mobile ? 3 : 1;
+    const indexMap: number[] = [];
 
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
+    for (let i = 0; i < TOTAL_FRAMES; i += step) {
+      indexMap.push(i);
+    }
+
+    const totalToLoad = indexMap.length;
+
+    for (let j = 0; j < totalToLoad; j++) {
       const img = new Image();
-      img.src = getFramePath(i);
+      img.src = getFramePath(indexMap[j]);
       img.onload = img.onerror = () => {
         if (cancelled) return;
         loadedCount++;
-        setLoadProgress(loadedCount / TOTAL_FRAMES);
-        if (loadedCount === TOTAL_FRAMES) setLoaded(true);
+        setLoadProgress(loadedCount / totalToLoad);
+        if (loadedCount === totalToLoad) setLoaded(true);
       };
       imgs.push(img);
     }
     framesRef.current = imgs;
+    frameIndexMapRef.current = indexMap;
     return () => { cancelled = true; };
   }, []);
 
@@ -130,6 +153,8 @@ export function CanvasBackground() {
 
   // Scroll-driven frame animation
   useEffect(() => {
+    const totalLoadedFrames = framesRef.current.length;
+
     const handleScroll = () => {
       if (tickingRef.current) return;
       tickingRef.current = true;
@@ -141,7 +166,8 @@ export function CanvasBackground() {
         const scrollable = document.documentElement.scrollHeight - window.innerHeight;
         const progress = scrollable <= 0 ? 0 : Math.min(1, Math.max(0, window.scrollY / scrollable));
 
-        const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(progress * TOTAL_FRAMES));
+        // Map scroll progress to loaded frame index
+        const frameIndex = Math.min(totalLoadedFrames - 1, Math.floor(progress * totalLoadedFrames));
         if (frameIndex !== lastFrameRef.current) {
           lastFrameRef.current = frameIndex;
           drawFrame(frameIndex);
@@ -154,19 +180,36 @@ export function CanvasBackground() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [loaded, drawFrame]);
 
+  // Mobile-specific filter: less intense, no drop-shadow for performance
+  const canvasFilter = isMobile
+    ? "brightness(1.4) contrast(1.1)"
+    : "brightness(2.0) contrast(1.3) drop-shadow(0 0 15px rgba(34,211,238,0.3))";
+
   return (
-    <div ref={containerRef} className="fixed inset-0 z-0 pointer-events-none bg-[#06080d] overflow-hidden">
-      <canvas
-        ref={canvasRef}
-        className="opacity-75 mix-blend-screen"
+    <div ref={containerRef} className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+      {/* Gradient fallback — always visible behind the canvas, ensures mobile never shows a blank screen */}
+      <div
+        className="absolute inset-0"
         style={{
-          willChange: "contents",
-          transform: "translateZ(0)",
-          filter: "brightness(2.0) contrast(1.3) drop-shadow(0 0 15px rgba(34,211,238,0.3))"
+          background: `
+            radial-gradient(ellipse 80% 60% at 50% 30%, rgba(34,211,238,0.08) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 50% at 80% 70%, rgba(167,139,250,0.06) 0%, transparent 60%),
+            linear-gradient(180deg, #06080d 0%, #0a0e18 40%, #06080d 100%)
+          `,
         }}
       />
 
-      {/* Radial gradient overlay */}
+      <canvas
+        ref={canvasRef}
+        className="relative opacity-80"
+        style={{
+          willChange: "contents",
+          transform: "translateZ(0)",
+          filter: canvasFilter,
+        }}
+      />
+
+      {/* Radial gradient overlay — vignette effect */}
       <div
         className="absolute inset-0"
         style={{

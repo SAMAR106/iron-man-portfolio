@@ -106,6 +106,17 @@ export function Projects() {
     >
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
         
+        {/* Mobile-visible background gradient */}
+        <div
+          className="absolute inset-0 md:opacity-0 opacity-100 pointer-events-none"
+          style={{
+            background: `
+              radial-gradient(ellipse 100% 60% at 20% 50%, rgba(34,211,238,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse 80% 60% at 80% 40%, rgba(167,139,250,0.05) 0%, transparent 50%)
+            `,
+          }}
+        />
+
         {/* Background Grid */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
           <div className="h-full w-full bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:100px_100px]" />
