@@ -44,7 +44,7 @@ export function CanvasBackground() {
     return () => { cancelled = true; };
   }, []);
 
-  // Draw frame with "cover" behavior — fills canvas completely on all devices
+  // Draw frame: "cover" on desktop (fills viewport), "contain" on mobile (minimizes zoom)
   const drawFrame = useCallback((index: number) => {
     const canvas = canvasRef.current;
     const img = framesRef.current[index];
@@ -58,8 +58,16 @@ export function CanvasBackground() {
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
 
-    // "Cover" — scale image to fill canvas completely, crop overflow
-    const scale = Math.max(cw / imgW, ch / imgH);
+    // Detect mobile via CSS pixel width
+    const cssWidth = parseInt(canvas.style.width) || window.innerWidth || 768;
+    const isMobile = cssWidth <= 768;
+
+    // Mobile: "contain" minimizes zoom (shows full image with bars)
+    // Desktop: "cover" fills viewport (crops overflow)
+    const scale = isMobile
+      ? Math.min(cw / imgW, ch / imgH)
+      : Math.max(cw / imgW, ch / imgH);
+
     const drawW = imgW * scale;
     const drawH = imgH * scale;
     const drawX = (cw - drawW) / 2;
